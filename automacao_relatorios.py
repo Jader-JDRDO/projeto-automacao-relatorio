@@ -2,7 +2,7 @@
 import pandas as pd
 import win32com.client as win32
 import pathlib
-
+from sqlalchemy import create_engine
 
 vendas_df=pd.read_excel(r'Bases de Dados\Vendas.xlsx')
 lojas_df=pd.read_csv(r'Bases de Dados\Lojas.csv',encoding='latin1',sep=';')
@@ -13,8 +13,18 @@ print(lojas_df)
 print(emails_df)
 
 
+
 vendas_df=vendas_df.merge(lojas_df,on='ID Loja')
 print(vendas_df)
+
+try:
+    vendas_df.to_sql('tb_vendas_consolidado', if_exists='append', index=False)
+    engine = create_engine('sqlite:///banco_logistica.db')
+    print("Dados integrados ao SQL com sucesso!")
+except Exception as e:
+    print(f"Erro ao salvar no SQL: {e}")
+
+
 
 dicionario_lojas={}
 for loja in lojas_df['Loja']:
