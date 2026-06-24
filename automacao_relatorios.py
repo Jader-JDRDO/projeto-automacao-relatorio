@@ -3,6 +3,8 @@ import pandas as pd
 import win32com.client as win32
 import pathlib
 from sqlalchemy import create_engine
+import sqlite3
+import matplotlib.pyplot as plt
 
 vendas_df=pd.read_excel(r'Bases de Dados\Vendas.xlsx')
 lojas_df=pd.read_csv(r'Bases de Dados\Lojas.csv',encoding='latin1',sep=';')
@@ -17,12 +19,6 @@ print(emails_df)
 vendas_df=vendas_df.merge(lojas_df,on='ID Loja')
 print(vendas_df)
 
-try:
-    vendas_df.to_sql('tb_vendas_consolidado', if_exists='append', index=False)
-    engine = create_engine('sqlite:///banco_logistica.db')
-    print("Dados integrados ao SQL com sucesso!")
-except Exception as e:
-    print(f"Erro ao salvar no SQL: {e}")
 
 
 
@@ -206,7 +202,7 @@ for loja in dicionario_lojas:
     email.Send() #email enviado
     print(f"O e-mail da loja {loja} foi enviado")
 
-    faturamento_lojas = vendas_df.groupby('Loja')[['Valor Final']].sum()
+faturamento_lojas = vendas_df.groupby('Loja')[['Valor Final']].sum()
 faturamento_lojas_ano = faturamento_lojas.sort_values(by='Valor Final', ascending = False)
 
 
@@ -222,8 +218,49 @@ nome_arquivo_dia='{}_{}_Ranking_Dia.xlsx'.format(dia_indicador.month,dia_indicad
 faturamento_lojas_dia.to_excel(r'{}/{}'.format(caminho_backup,nome_arquivo_dia))
 
 
-import win32com.client as win32
-import pathlib
+engine = create_engine('sqlite:///banco_logistica.db')
+try:
+      vendas_df.to_sql('tb_vendas_consolidado', if_exists='append', index=False, con=engine)
+     
+      print("Dados integrados ao SQL com sucesso!")
+      
+except Exception as e:
+    print(f"Erro ao salvar no SQL: {e}")
+
+query_faturamento = '''
+SELECT 
+    SUM([Valor Final]) as [Valor Final]
+FROM
+    tb_vendas_consolidado
+GROUP BY 
+        Loja
+ORDER BY 
+        [Valor Final] DESC;
+'''
+with sqlite3.connect('banco_logistica.db') as conn:
+    df_faturamento = pd.read_sql(query_faturamento, conn)
+
+plt.figure(figsize=(12, 7))#dimensoes do grafico que quero que tenha os dados coletados do top do dia
+
+# Usando gráfico de barras horizontais (barh) para facilitar a leitura dos nomes
+barras_a = plt.barh(df_faturamento['Loja'], df_faturamento['Valor Final'], color='viridis') #variavel barras recebendo os dados do bairro e quantidade de entregas para o eixo x e y do grafico
+
+for barra in barras_a: #para cada barra no dicionario barras
+  tamanho = barra.get_width() #pega o valor da quantidade
+  plt.text(tamanho + 0.3,  #posição x um pouco depois da barra
+            barra.get_y() + barra.get_height()/2, #posição y no meio da barra
+            f'{int(tamanho)}', #o texto da quantidade convertida em inteiro)
+            va='center', fontsize=10, fontweight='bold') #formatacao do texto em centralizado,tamanho 10, negrito
+plt.title('Quantidade Total de Faturamento por Bairro', fontsize=14) #titulo do grafico com tamanho 14
+plt.xlabel('Faturamento') #parte inferior do grafico com a legenda numero de entregas
+plt.ylabel('Loja')#parte lateral do grafico com legenda do bairro
+plt.tight_layout() #garantindo que todos as informaçoes apareçam no grafico sem areas cortadas ou incompletas
+plt.savefig(caminho_backup / 'faturamento_bairro_ano.png')#criando uma figura a partir do texto  
+#plt.show()#exibindo a figura formada
+
+
+
+    
 #enviando email
 outlook = win32.Dispatch('outlook.application')
 nome = emails_df.loc[emails_df['Loja'] ==  'Diretoria', 'E-mail'].values[0] 
