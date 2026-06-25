@@ -5,6 +5,7 @@ import pathlib
 from sqlalchemy import create_engine
 import sqlite3
 import matplotlib.pyplot as plt
+import time
 
 vendas_df=pd.read_excel(r'Bases de Dados\Vendas.xlsx')
 lojas_df=pd.read_csv(r'Bases de Dados\Lojas.csv',encoding='latin1',sep=';')
@@ -15,11 +16,8 @@ print(lojas_df)
 print(emails_df)
 
 
-
 vendas_df=vendas_df.merge(lojas_df,on='ID Loja')
 print(vendas_df)
-
-
 
 
 dicionario_lojas={}
@@ -40,19 +38,16 @@ lista_arquivos_backup=[arquivo.name for arquivo in arquivos_pastas_backup]
 print(lista_arquivos_backup)
 
 for loja in dicionario_lojas:
-    try:
         if loja not in lista_arquivos_backup:
             nova_pasta = caminho_backup / loja
             nova_pasta.mkdir()
-    except FileExistsError:
-        pass
     
-    nome_arquivo='{}_{}_{}.xlsx'.format(dia_indicador.month,dia_indicador.day,loja)
-    local_arquivo = caminho_backup/loja/nome_arquivo
-            
-    dicionario_lojas[loja].to_excel(local_arquivo)
+        nome_arquivo='{}_{}_{}.xlsx'.format(dia_indicador.month,dia_indicador.day,loja)
+        local_arquivo = caminho_backup / loja / nome_arquivo
+                  
+        dicionario_lojas[loja].to_excel(local_arquivo)
 
-    meta_faturamento = 1000
+meta_faturamento = 1000
 meta_faturamento_ano=1650000
 meta_qtdprodutos_dia = 4
 meta_qtdprodutos_ano = 120
@@ -76,15 +71,12 @@ for loja in dicionario_lojas:
     qtd_produtos_loja_dia=len(vendas_loja_dia['Produto'])
     
 
-
-
     #Ticket Medio
     valor_venda=vendas_loja.groupby('Código Venda').sum(numeric_only=True)
     ticket_medio_ano = valor_venda['Valor Final'].mean()
     valor_vendas_dia=vendas_loja_dia.groupby('Código Venda').sum(numeric_only=True)
     ticket_medio_dia = valor_vendas_dia['Valor Final'].mean()
     
-
 
     #enviando email
     outlook = win32.Dispatch('outlook.application')
@@ -201,21 +193,23 @@ for loja in dicionario_lojas:
 
     email.Send() #email enviado
     print(f"O e-mail da loja {loja} foi enviado")
+    time.sleep(5)
 
 faturamento_lojas = vendas_df.groupby('Loja')[['Valor Final']].sum()
-faturamento_lojas_ano = faturamento_lojas.sort_values(by='Valor Final', ascending = False)
+faturamento_lojas_ano = faturamento_lojas.sort_values(by='Valor Final', ascending=False)
+print(faturamento_lojas_ano)
+
+nome_arquivo = '{}_{}_Ranking Anual.xlsx'.format(dia_indicador.month, dia_indicador.day)
+faturamento_lojas_ano.to_excel(r'Backup Arquivos Lojas\{}'.format(nome_arquivo))
 
 
-vendas_dia = vendas_df.loc[vendas_df['Data']==dia_indicador,:]
+vendas_dia = vendas_df.loc[vendas_df['Data']==dia_indicador, :]
 faturamento_lojas_dia = vendas_dia.groupby('Loja')[['Valor Final']].sum()
-faturamento_lojas_dia = faturamento_lojas_dia.sort_values(by='Valor Final', ascending = False)
+faturamento_lojas_dia = faturamento_lojas_dia.sort_values(by='Valor Final', ascending=False)
+print(faturamento_lojas_dia)
 
-
-
-nome_arquivo_ano='{}_{}_Ranking_Anual.xlsx'.format(dia_indicador.month,dia_indicador.day)          
-faturamento_lojas_ano.to_excel(r'{}\{}'.format(caminho_backup,nome_arquivo_ano))
-nome_arquivo_dia='{}_{}_Ranking_Dia.xlsx'.format(dia_indicador.month,dia_indicador.day) 
-faturamento_lojas_dia.to_excel(r'{}/{}'.format(caminho_backup,nome_arquivo_dia))
+nome_arquivo = '{}_{}_Ranking Dia.xlsx'.format(dia_indicador.month, dia_indicador.day)
+faturamento_lojas_dia.to_excel(r'Backup Arquivos Lojas\{}'.format(nome_arquivo))
 
 
 engine = create_engine('sqlite:///banco_logistica.db')
@@ -227,32 +221,49 @@ try:
 except Exception as e:
     print(f"Erro ao salvar no SQL: {e}")
 
-query_faturamento = '''
+
+query_faturamento = """
 SELECT 
-    SUM([Valor Final]) as [Valor Final]
+    Loja,
+    SUM([Valor Final]) as [Faturamento Total]
 FROM
     tb_vendas_consolidado
 GROUP BY 
-        Loja
+    Loja
 ORDER BY 
-        [Valor Final] DESC;
-'''
+    [Faturamento Total] DESC;
+"""
+
 with sqlite3.connect('banco_logistica.db') as conn:
     df_faturamento = pd.read_sql(query_faturamento, conn)
 
+cores = []
+total_lojas = len(df_faturamento)
+
+for i in range(total_lojas):
+    if i < 3:
+        cores.append('forestgreen')
+    elif i >= (total_lojas - 3):
+        cores.append('darkred')
+    else:
+        cores.append('royalblue')
 plt.figure(figsize=(12, 7))#dimensoes do grafico que quero que tenha os dados coletados do top do dia
 
 # Usando gráfico de barras horizontais (barh) para facilitar a leitura dos nomes
-barras_a = plt.barh(df_faturamento['Loja'], df_faturamento['Valor Final'], color='viridis') #variavel barras recebendo os dados do bairro e quantidade de entregas para o eixo x e y do grafico
+barras_a = plt.barh(df_faturamento['Loja'], df_faturamento['Faturamento Total'], color=cores) #variavel barras recebendo os dados do bairro e quantidade de entregas para o eixo x e y do grafico
+plt.xticks([]) 
 
+
+plt.xlim(0, df_faturamento['Faturamento Total'].max() * 1.20)
 for barra in barras_a: #para cada barra no dicionario barras
   tamanho = barra.get_width() #pega o valor da quantidade
-  plt.text(tamanho + 0.3,  #posição x um pouco depois da barra
+  plt.text(tamanho + 10000,  #posição x um pouco depois da barra
             barra.get_y() + barra.get_height()/2, #posição y no meio da barra
-            f'{int(tamanho)}', #o texto da quantidade convertida em inteiro)
+            f'R$ {int(tamanho):.2f}', #o texto da quantidade convertida em inteiro)
             va='center', fontsize=10, fontweight='bold') #formatacao do texto em centralizado,tamanho 10, negrito
-plt.title('Quantidade Total de Faturamento por Bairro', fontsize=14) #titulo do grafico com tamanho 14
-plt.xlabel('Faturamento') #parte inferior do grafico com a legenda numero de entregas
+plt.gca().invert_yaxis()
+plt.title('Ranking Anual de Faturamento por Loja', fontsize=14) #titulo do grafico com tamanho 14
+plt.xlabel('Faturamento Acumulado (R$)') #parte inferior do grafico com a legenda numero de entregas
 plt.ylabel('Loja')#parte lateral do grafico com legenda do bairro
 plt.tight_layout() #garantindo que todos as informaçoes apareçam no grafico sem areas cortadas ou incompletas
 plt.savefig(caminho_backup / 'faturamento_bairro_ano.png')#criando uma figura a partir do texto  
@@ -263,13 +274,13 @@ plt.savefig(caminho_backup / 'faturamento_bairro_ano.png')#criando uma figura a 
     
 #enviando email
 outlook = win32.Dispatch('outlook.application')
-nome = emails_df.loc[emails_df['Loja'] ==  'Diretoria', 'E-mail'].values[0] 
+nome_diretoria = emails_df.loc[emails_df['Loja'] ==  'Diretoria', 'E-mail'].values[0] 
 mail = outlook.CreateItem(0)
-mail.To = 'mrcartonrex@gmail.com' #emails.loc[emails['Loja'] == loja, 'E-mail'].values[0]email.Subject = f' Ranking Dia {dia_indicador.day}/{dia_indicador.month} ' #assunto
+mail.To = 'mrcartonrex@gmail.com'
 mail.Subject = f'Ranking {dia_indicador.day}/{dia_indicador.month}'
 
 #texto do email
-mail.HTMLBody = f''' 
+mail.HTMLBody = f"""
 <p>Prezados, Bom Dia </p>
 <p>A melhor loja do Dia em Faturamento foi a loja {faturamento_lojas_dia.index[0]} com faturamento de R$ {faturamento_lojas_dia.iloc[0,0]:.2f}</p>
 <p>A pior loja do Dia em Faturamento foi a loja {faturamento_lojas_dia.index[-1]} com faturamento de R$ {faturamento_lojas_dia.iloc[-1,0]:.2f}</p>
@@ -281,14 +292,14 @@ mail.HTMLBody = f'''
 
 <p>Qualquer dúvida estou a disposição </p>
 <p>Att., Jader</p>
-
-'''
+"""
 #buscando documento dentro da pasta do PC e definindo padrao para enviar por email
-attachment = pathlib.Path.cwd() / caminho_backup / f'{dia_indicador.month}_{dia_indicador.day}_Ranking_Anual.xlsx'
-mail.Attachments.Add(str(attachment)) 
-attachment = pathlib.Path.cwd() / caminho_backup / f'{dia_indicador.month}_{dia_indicador.day}_Ranking_Dia.xlsx'
-mail.Attachments.Add(str(attachment)) #transformando o caminho em texto para o python entender onde procurar
-
+attachment_ano  = pathlib.Path.cwd() / caminho_backup / f'{dia_indicador.month}_{dia_indicador.day}_Ranking Anual.xlsx'
+mail.Attachments.Add(str(attachment_ano))
+attachment_dia  = pathlib.Path.cwd() / caminho_backup / f'{dia_indicador.month}_{dia_indicador.day}_Ranking Dia.xlsx'
+mail.Attachments.Add(str(attachment_dia))
+attachment_imagem = pathlib.Path.cwd() / caminho_backup / 'faturamento_bairro_ano.png'
+mail.Attachments.Add(str(attachment_imagem))
 
 mail.Send() #email enviado
-print(f"O e-mail foi enviado")
+print(f"O e-mail para a {nome_diretoria} foi enviado")
