@@ -11,13 +11,7 @@ vendas_df=pd.read_excel(r'Bases de Dados\Vendas.xlsx')
 lojas_df=pd.read_csv(r'Bases de Dados\Lojas.csv',encoding='latin1',sep=';')
 emails_df=pd.read_excel(r'Bases de Dados\Emails.xlsx')
 
-print(vendas_df)
-print(lojas_df)
-print(emails_df)
-
-
 vendas_df=vendas_df.merge(lojas_df,on='ID Loja')
-print(vendas_df)
 
 
 dicionario_lojas={}
@@ -35,7 +29,7 @@ caminho_backup = pathlib.Path(r'Backup Arquivos Lojas')
 arquivos_pastas_backup = caminho_backup.iterdir()
 
 lista_arquivos_backup=[arquivo.name for arquivo in arquivos_pastas_backup]
-print(lista_arquivos_backup)
+
 
 for loja in dicionario_lojas:
         if loja not in lista_arquivos_backup:
