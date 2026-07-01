@@ -31,7 +31,13 @@ O gráfico gerado pelo script auxilia o tomador de decisão a identificar rapida
 
 📦 Como Rodar o Projeto
 
-1. Certifique-se de ter o Microsoft Outlook instalado e configurado na sua máquina.
-2. Clone este repositório.
-3. Instale as bibliotecas necessárias:
-   pip install pandas pywin32 matplotlib sqlalchemy sqlite3 time
+1. Certifique-se de ter o Mozila Firefox instalado e configurado na sua máquina.
+2. Certifique-se de estar conectado ao Gmail e ao Google Drive.
+3. Clone este repositório com o arquivo python uma pasta de sua preferencia
+4. Instale as bibliotecas necessárias:
+     pip install pandas pywin32 matplotlib sqlalchemy sqlite3 time
+5. Certifique-se que o seu arquivo '.xlsx' ou '.csv' esteja localizado em uma pasta chamada "Exportar" na base onde esta o arquivo pyhton a ser usado
+6. Executar normalmente (geralmente 2 cliques)
+     (Vale ressaltar que o a resolução a ser usada originalmente é de '1440 x 900', portando, caso aconteça algum erro de interação, ele se deve ao fato de ser uma resolução distinta da          original)
+
+ 
